@@ -21,7 +21,7 @@ try
 
     Console.WriteLine("devices started.  press enter to quit ...");
 
-    Console.ReadLine();
+    _ = Console.ReadLine();
 
     await simulatedDeviceManager.StopDevices();
 

@@ -4,7 +4,7 @@
     {
         readonly IoTHubDeviceManager _iotHubDeviceHelper;
 
-        readonly System.Timers.Timer _timer = new System.Timers.Timer(5000)
+        readonly System.Timers.Timer _timer = new(5000)
         {
             AutoReset = true
         };
@@ -17,7 +17,7 @@
             {
                 var messageBody = "{\"temperature\": " + temperature + "}";
 
-                Task.Factory.StartNew(async () => { await _iotHubDeviceHelper.SendMessage(messageBody); });
+                _ = Task.Factory.StartNew(async () => await _iotHubDeviceHelper.SendMessage(messageBody));
             };
         }
 

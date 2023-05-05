@@ -19,12 +19,7 @@ namespace NothingWorx.DeviceSimulator
 
         public async Task<IoTHubDeviceManager> AddDevice(string deviceID) 
         {
-            var device = await _registryManager.GetDeviceAsync(deviceID);
-
-            if (device == null)
-            {
-                device = await _registryManager.AddDeviceAsync(new Device(deviceID));
-            }
+            var device = await _registryManager.GetDeviceAsync(deviceID) ?? await _registryManager.AddDeviceAsync(new Device(deviceID));
 
             return new IoTHubDeviceManager(_iotHubHostname, device);
         }
@@ -45,7 +40,7 @@ namespace NothingWorx.DeviceSimulator
 
             var devices = twins.Select(i => new Device(i.DeviceId));
 
-            await _registryManager.RemoveDevices2Async(devices, true, CancellationToken.None);
+            _ = await _registryManager.RemoveDevices2Async(devices, true, CancellationToken.None);
         }
     }
 }
