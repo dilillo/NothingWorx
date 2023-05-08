@@ -36,11 +36,19 @@ namespace NothingWorx.DeviceSimulator
 
         public async Task ClearDevices()
         {
-            var twins = await _registryManager.CreateQuery("select * from devices").GetNextAsTwinAsync();
+            while (true)
+            {
+                var twins = await _registryManager.CreateQuery("select * from devices", 100).GetNextAsTwinAsync();
 
-            var devices = twins.Select(i => new Device(i.DeviceId));
+                if (twins?.Count() == 0)
+                {
+                    break;
+                }
 
-            _ = await _registryManager.RemoveDevices2Async(devices, true, CancellationToken.None);
+                var devices = twins?.Select(i => new Device(i.DeviceId));
+
+                _ = await _registryManager.RemoveDevices2Async(devices, true, CancellationToken.None);
+            }
         }
     }
 }

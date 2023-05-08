@@ -1,43 +1,83 @@
-﻿namespace NothingWorx.DeviceSimulator
+﻿using Spectre.Console;
+
+namespace NothingWorx.DeviceSimulator
 {
     public class SimulatedDeviceManager
     {
+        readonly IoTHubManager _iotHubManager;
+        readonly List<SimulatedDevice> _devices = new();
+
         public SimulatedDeviceManager(IoTHubManager ioTHubHelper) 
         {
-            _ioTHubHelper = ioTHubHelper;
+            _iotHubManager = ioTHubHelper;
         }
-
-        readonly IoTHubManager _ioTHubHelper;
-        
-        List<SimulatedDevice> _devices = new();
 
         public async Task StartDevices(int deviceCount)
         {
-            var random = new Random();
+            await AnsiConsole.Progress()
+                .StartAsync(async ctx =>
+                {
+                    // Define tasks
+                    var task1 = ctx.AddTask($"provisioning {deviceCount} devices");
+                    var task2 = ctx.AddTask("starting devices");
 
-            await _ioTHubHelper.Open();
-            
-            for (var i = 0; i < deviceCount; i++)
-            {
-                var newDeviceID = RandomDeviceID;
+                    var incrementValue = 100d / deviceCount;
+                    
+                    await _iotHubManager.Open();
 
-                var iotHubDeviceHelper = await _ioTHubHelper.AddDevice(newDeviceID);
+                    var deviceIds = Array.CreateInstance(typeof(string), deviceCount);
 
-                var newDevice = new SimulatedDevice(iotHubDeviceHelper, random.NextDouble() * 100d);
+                    for (var i = 0; i < deviceCount; i++)
+                    {
+                        var newDeviceID = "sim1device" + i;
 
-                await newDevice.Start();
+                        var iotHubDeviceManager = await _iotHubManager.AddDevice(newDeviceID);
 
-                _devices.Add(newDevice);
-            }
+                        var newDevice = new SimulatedDevice(iotHubDeviceManager);
+
+                        _devices.Add(newDevice);
+
+                        task1.Increment(incrementValue);
+                    }
+
+                    var options = new ParallelOptions()
+                    {
+                        MaxDegreeOfParallelism = 10
+                    };
+
+                    await Parallel.ForEachAsync(_devices, options, async (i, ct) =>
+                    {
+                        await i.Start();
+
+                        task2.Increment(incrementValue);
+                    });
+                });
         }
 
         public async Task StopDevices()
         {
-            await Task.Run(() => Parallel.ForEach(_devices, async (i) => await i.Stop()));
+            await AnsiConsole.Progress()
+                .StartAsync(async ctx =>
+                {
+                    // Define tasks
+                    var task1 = ctx.AddTask("stopping devices");
 
-            _devices.Clear();
+                    double incrementValue = 100d / _devices.Count;
+
+                    var options = new ParallelOptions()
+                    {
+                        MaxDegreeOfParallelism = 10
+                    };
+
+                    await Parallel.ForEachAsync(_devices, options, async (i, ct) =>
+                    {
+                        await i.Stop();
+
+                        task1.Increment(incrementValue);
+                    });
+
+                    _devices.Clear();
+                });
         }
-
-        static string RandomDeviceID => "device" + new string(Guid.NewGuid().ToString().TakeLast(4).ToArray());
     }
 }

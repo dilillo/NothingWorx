@@ -1,35 +1,51 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using NothingWorx.DeviceSimulator;
+using NothingWorx.DeviceSimulator.Infrastructure;
+using Spectre.Console;
+using Spectre.Console.Cli;
 
-try
+public static class Program
 {
-    var configBuilder = new ConfigurationBuilder()
-        .SetBasePath(Directory.GetCurrentDirectory())
-        .AddEnvironmentVariables()
-        .AddJsonFile("appsettings.json")
-        .AddJsonFile("appsettings.Development.json", true);
+    public static int Main(string[] args)
+    {
+        AnsiConsole.Write(
+            new FigletText("NothingWorx")
+                .LeftJustified()
+                .Color(Color.Blue));
 
-    var rootConfig = configBuilder.Build();
+        AnsiConsole.Write(
+            new FigletText("DeviceSimulator")
+                .Centered()
+                .Color(Color.Blue));
 
-    var iotHubManager = new IoTHubManager(rootConfig.GetConnectionString("TargetIoTHub"));
+        var configBuilder = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddEnvironmentVariables()
+            .AddJsonFile("appsettings.json")
+            .AddJsonFile("appsettings.Development.json", true);
 
-    var simulatedDeviceManager = new SimulatedDeviceManager(iotHubManager);
+        var rootConfig = configBuilder.Build();
 
-    await iotHubManager.Open();
+        var registrations = new ServiceCollection();
 
-    await simulatedDeviceManager.StartDevices(int.Parse(rootConfig["DeviceCount"]));
+        registrations.AddSingleton<IConfiguration>(rootConfig);
 
-    Console.WriteLine("devices started.  press enter to quit ...");
+        // Create a type registrar and register any dependencies.
+        // A type registrar is an adapter for a DI framework.
+        var registrar = new TypeRegistrar(registrations);
 
-    _ = Console.ReadLine();
+        // Create a new command app with the registrar
+        // and run it with the provided arguments.
+        var app = new CommandApp<SimulateDevicesCommand>(registrar);
 
-    await simulatedDeviceManager.StopDevices();
+        app.Configure(config =>
+        {
+            config.AddCommand<SimulateDevicesCommand>("sim");
+            config.AddCommand<IoTHubClearCommand>("clear");
+        });
 
-    await iotHubManager.ClearDevices();
-
-    await iotHubManager.Close();
+        return app.Run(args);
+    }
 }
-catch (Exception ex)
-{
-    Console.WriteLine(ex);
-}
+

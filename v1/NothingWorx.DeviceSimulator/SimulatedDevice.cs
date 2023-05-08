@@ -1,31 +1,39 @@
-﻿namespace NothingWorx.DeviceSimulator
+﻿using Spectre.Console;
+
+namespace NothingWorx.DeviceSimulator
 {
     public partial class SimulatedDevice
     {
-        readonly IoTHubDeviceManager _iotHubDeviceHelper;
+        readonly IoTHubDeviceManager _iotHubDeviceManager;
+        readonly Random _random = new();
 
         readonly System.Timers.Timer _timer = new(5000)
         {
             AutoReset = true
         };
 
-        public SimulatedDevice(IoTHubDeviceManager iotHubDeviceHelper, double temperature)
+        public SimulatedDevice(IoTHubDeviceManager iotHubDeviceHelper)
         {
-            _iotHubDeviceHelper = iotHubDeviceHelper;
+            _iotHubDeviceManager = iotHubDeviceHelper;
 
             _timer.Elapsed += (object? sender, System.Timers.ElapsedEventArgs e) =>
             {
-                var messageBody = "{\"temperature\": " + temperature + "}";
+                _ = Task.Factory.StartNew(async () =>
+                {
+                    var messageBody = "{\"temperature\": " + Math.Round(_random.NextDouble() * 100d, 1) + "}";
 
-                _ = Task.Factory.StartNew(async () => await _iotHubDeviceHelper.SendMessage(messageBody));
+                    await _iotHubDeviceManager.SendMessage(messageBody);
+
+                    AnsiConsole.WriteLine($"{DeviceID} sent {messageBody}");
+                });
             };
         }
 
-        public string DeviceID => _iotHubDeviceHelper.DeviceID;
+        public string DeviceID => _iotHubDeviceManager.DeviceID;
 
         public async Task Start()
         {
-            await _iotHubDeviceHelper.Open();
+            await _iotHubDeviceManager.Open();
 
             _timer.Start();
         }
@@ -36,7 +44,7 @@
 
             await Task.Delay(5000);
 
-            await _iotHubDeviceHelper.Close();
+            await _iotHubDeviceManager.Close();
         }
     }
 }
